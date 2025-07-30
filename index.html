@@ -65,6 +65,7 @@
             padding: 0.5rem 0.75rem;
             color: white;
             width: 100%;
+            font-size: 0.875rem; /* text-sm */
         }
         .editable-field:focus {
             outline: none;
@@ -167,9 +168,9 @@
                     </div>
                     <p class="mt-4 text-blue-400 tracking-wider">EXTRACTING ASSET DATA...</p>
                 </div>
-                <div id="result-content" class="hidden w-full glass-pane p-6 rounded-xl text-left">
+                <div id="result-content" class="hidden w-full glass-pane p-4 sm:p-6 rounded-xl text-left">
                     <img id="result-thumbnail" class="w-full h-32 object-contain rounded-lg mb-4 border border-gray-700 cursor-pointer">
-                    <div id="result-display" class="space-y-4"></div>
+                    <div id="result-display" class="space-y-3"></div>
                     <div id="error-display" class="hidden">
                         <h2 id="result-title" class="text-sm font-bold text-red-400 mb-2 tracking-widest">ANALYSIS FAILED</h2>
                         <p id="result-text" class="text-white text-lg font-bold"></p>
@@ -457,13 +458,14 @@
             }
         }
         
-        function checkForDataDuplicates(data) {
+        function checkForDataDuplicates(data, checkIndex = -1) {
             const currentId = data.serialNumber || data.barcodeValue;
             if (currentId && currentId !== 'N/A') {
                 const trimmedCurrentId = currentId.trim();
                 if (trimmedCurrentId === '') return false;
 
-                const duplicate = scanHistory.find(scan => {
+                const duplicate = scanHistory.find((scan, index) => {
+                    if (checkIndex !== -1 && index === checkIndex) return false;
                     const oldId = scan.data.serialNumber || scan.data.barcodeValue;
                     if (oldId && oldId !== 'N/A') {
                         return oldId.trim() === trimmedCurrentId;
@@ -495,16 +497,14 @@
                         
                         container.className = 'flex items-center justify-between';
                         container.innerHTML = `
-                            <dt class="text-sm font-bold text-blue-400 tracking-widest uppercase">${keyMapping[key]}</dt>
-                            <dd class="text-white text-lg font-bold px-3 py-1 text-sm rounded-full ${colorClass}">${value}%</dd>
+                            <dt class="text-xs font-bold text-blue-400 tracking-widest uppercase">${keyMapping[key]}</dt>
+                            <dd class="text-white font-bold px-2 py-0.5 text-xs rounded-full ${colorClass}">${value}%</dd>
                         `;
                     } else {
-                        container.className = 'flex flex-col sm:flex-row sm:items-center sm:space-x-2';
+                        container.className = 'flex flex-col';
                         container.innerHTML = `
-                            <div class="w-full sm:w-1/3 mb-1 sm:mb-0">
-                                <dt class="text-sm font-bold text-blue-400 tracking-widest uppercase">${keyMapping[key]}</dt>
-                            </div>
-                            <div class="w-full sm:w-2/3 flex items-center space-x-2">
+                            <dt class="text-xs font-bold text-blue-400 tracking-widest uppercase mb-1">${keyMapping[key]}</dt>
+                            <div class="flex items-center space-x-2">
                                 <input type="text" value="${value || 'N/A'}" data-key="${key}" class="editable-field" ${!isEditable ? 'readonly' : ''}>
                                 <button class="copy-field-btn text-gray-500 hover:text-white" data-value="${value || 'N/A'}" data-label="${keyMapping[key]}">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
