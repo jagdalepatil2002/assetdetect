@@ -458,14 +458,13 @@
             }
         }
         
-        function checkForDataDuplicates(data, checkIndex = -1) {
+        function checkForDataDuplicates(data) {
             const currentId = data.serialNumber || data.barcodeValue;
             if (currentId && currentId !== 'N/A') {
                 const trimmedCurrentId = currentId.trim();
                 if (trimmedCurrentId === '') return false;
 
-                const duplicate = scanHistory.find((scan, index) => {
-                    if (checkIndex !== -1 && index === checkIndex) return false;
+                const duplicate = scanHistory.find(scan => {
                     const oldId = scan.data.serialNumber || scan.data.barcodeValue;
                     if (oldId && oldId !== 'N/A') {
                         return oldId.trim() === trimmedCurrentId;
