@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset.ID - Asset Identifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0d1117; /* Deep Slate */
+        }
+        .glass-pane {
+            background-color: rgba(22, 27, 34, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(48, 54, 61, 0.5);
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-image: linear-gradient(to right, #3b82f6, #6366f1);
+            color: white;
+            box-shadow: 0 4px 15px -5px rgba(99, 102, 241, 0.4);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px -5px rgba(99, 102, 241, 0.6);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #374151; /* gray-700 */
+            color: #d1d5db; /* gray-300 */
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563; /* gray-600 */
+        }
+        .shutter-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+        }
+        input[type="file"] { display: none; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        /* Editable field styles */
+        .editable-field {
+            background-color: rgba(17, 24, 39, 0.5); /* bg-gray-900/50 */
+            border: 1px solid #4b5563; /* border-gray-600 */
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            color: white;
+            width: 100%;
+        }
+        .editable-field:focus {
+            outline: none;
+            border-color: #3b82f6; /* border-blue-500 */
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+        /* Toast Notification */
+        #toast-notification {
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        #toast-notification.hidden {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        /* Data Flow Animation */
+        .data-flow-loader {
+            width: 150px;
+            height: 100px;
+        }
+        .data-flow-loader .icon {
+            stroke: #3b82f6;
+            filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.7));
+        }
+        .data-flow-loader .data-line {
+            stroke: #6366f1;
+            stroke-dasharray: 4 4;
+            animation: data-march 1s linear infinite;
+        }
+        @keyframes data-march {
+            from { stroke-dashoffset: 8; }
+            to { stroke-dashoffset: 0; }
+        }
+    </style>
+</head>
+<body class="bg-[#0d1117] text-gray-200 h-screen flex flex-col">
+
+    <div id="app-container" class="w-full h-full flex flex-col">
+        <!-- Header -->
+        <header class="p-4 flex items-center justify-between bg-[#0d1117] shadow-md z-20">
+            <button id="history-btn" class="text-gray-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </button>
+             <button id="back-btn" class="hidden text-gray-400 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div class="text-center">
+                <h1 class="text-xl font-bold text-white tracking-wide">ASSET.ID</h1>
+                <p class="text-xs text-blue-400">AI-Powered Asset Recognition</p>
+            </div>
+            <div class="w-6"></div> <!-- Spacer -->
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-grow flex flex-col items-center justify-center p-4 overflow-y-auto">
+
+            <!-- Camera View -->
+            <div id="camera-view" class="w-full h-full flex flex-col items-center justify-center space-y-6">
+                <div class="w-full max-w-lg aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800 relative">
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                    <button id="flash-btn" class="hidden absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-12">
+                     <label for="upload-btn" class="text-gray-400 hover:text-white transition cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </label>
+                    <input id="upload-btn" type="file" accept="image/*">
+                    <button id="capture-btn" class="w-20 h-20 rounded-full flex items-center justify-center border-2 border-blue-500/50 shutter-ring">
+                        <div class="w-16 h-16 bg-blue-500 rounded-full shadow-lg"></div>
+                    </button>
+                    <div class="w-8 h-8"></div> <!-- Spacer -->
+                </div>
+            </div>
+
+            <!-- Preview & Analyze View -->
+            <div id="preview-view" class="hidden w-full h-full flex-col items-center justify-center">
+                <img id="photo-preview" class="w-full max-w-lg aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800 object-contain" alt="Captured asset">
+                <div class="flex space-x-4 mt-6">
+                    <button id="retake-btn" class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20v-5h-5" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8h.01M20 12a8 8 0 01-8 8h-.01" /></svg>
+                        <span>Retake</span>
+                    </button>
+                    <button id="analyze-btn" class="btn btn-primary">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <span>Analyze</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results View -->
+            <div id="results-view" class="hidden w-full max-w-lg flex-col items-center justify-center">
+                 <div id="loader" class="flex flex-col items-center justify-center space-y-4">
+                    <div class="data-flow-loader">
+                        <svg viewBox="0 0 150 100" xmlns="http://www.w3.org/2000/svg">
+                            <g class="icon"><rect x="5" y="30" width="40" height="40" rx="4" stroke-width="2" fill="none"/><circle cx="16" cy="42" r="3" stroke-width="2" fill="none"/><path d="M 10 60 l 10 -10 l 15 15" stroke-width="2" fill="none"/></g>
+                            <g class="icon"><rect x="105" y="30" width="40" height="40" rx="4" stroke-width="2" fill="none"/><path d="M 115 40 h 20 M 115 50 h 20 M 115 60 h 20" stroke-width="2" fill="none"/></g>
+                            <path class="data-line" d="M 45 40 h 60" stroke-width="2" fill="none"/><path class="data-line" d="M 45 50 h 60" stroke-width="2" fill="none" style="animation-delay: 0.3s;"/><path class="data-line" d="M 45 60 h 60" stroke-width="2" fill="none" style="animation-delay: 0.6s;"/>
+                        </svg>
+                    </div>
+                    <p class="mt-4 text-blue-400 tracking-wider">EXTRACTING ASSET DATA...</p>
+                </div>
+                <div id="result-content" class="hidden w-full glass-pane p-6 rounded-xl text-left">
+                    <img id="result-thumbnail" class="w-full h-32 object-contain rounded-lg mb-4 border border-gray-700 cursor-pointer">
+                    <div id="result-display" class="space-y-4"></div>
+                    <div id="error-display" class="hidden">
+                        <h2 id="result-title" class="text-sm font-bold text-red-400 mb-2 tracking-widest">ANALYSIS FAILED</h2>
+                        <p id="result-text" class="text-white text-lg font-bold"></p>
+                        <button id="copy-error-btn" class="hidden mt-4 text-xs bg-gray-600 hover:bg-gray-500 text-gray-300 py-1 px-3 rounded-md">Copy Error Details</button>
+                    </div>
+                </div>
+                 <div id="action-buttons" class="hidden w-full mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button id="copy-json-btn" class="btn btn-secondary w-full sm:w-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        <span>Copy as JSON</span>
+                    </button>
+                    <button id="start-over-btn" class="btn btn-primary w-full sm:w-auto">Scan Another Asset</button>
+                 </div>
+            </div>
+
+            <!-- History View -->
+            <div id="history-view" class="hidden w-full h-full flex-col">
+                <h2 class="text-lg font-bold text-center mb-4">Scan History</h2>
+                <div id="history-list" class="flex-grow overflow-y-auto space-y-3 pr-2"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden Canvas & Modal -->
+    <canvas id="canvas" class="hidden"></canvas>
+    <div id="custom-alert" class="modal-overlay hidden">
+        <div class="glass-pane p-8 rounded-xl text-center">
+            <p id="alert-message" class="mb-6"></p>
+            <button id="alert-ok-btn" class="btn btn-primary">OK</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="hidden fixed top-6 left-1/2 -translate-x-1/2 glass-pane px-6 py-3 rounded-full text-white text-sm">
+        <p id="toast-message"></p>
+    </div>
+    
+    <!-- Full Image Viewer Modal -->
+    <div id="image-viewer-modal" class="modal-overlay hidden p-4">
+        <img id="full-image-view" class="max-w-[95vw] max-h-[95vh] object-contain rounded-lg">
+        <button id="close-viewer-btn" class="absolute top-4 right-4 text-white bg-black/50 p-2 rounded-full hover:bg-black/75 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+    </div>
+
+    <script>
+        const apiKey = "AIzaSyCkt-tU9o9HNNqZavQPTtpOv74X0HziRoo"; 
+        
+        // DOM Elements
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const uploadBtn = document.getElementById('upload-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const startOverBtn = document.getElementById('start-over-btn');
+        const historyBtn = document.getElementById('history-btn');
+        const backBtn = document.getElementById('back-btn');
+        const flashBtn = document.getElementById('flash-btn');
+
+        const mainContent = document.getElementById('main-content');
+        const cameraView = document.getElementById('camera-view');
+        const previewView = document.getElementById('preview-view');
+        const resultsView = document.getElementById('results-view');
+        const historyView = document.getElementById('history-view');
+        const historyList = document.getElementById('history-list');
+        
+        const photoPreview = document.getElementById('photo-preview');
+        const loader = document.getElementById('loader');
+        const resultContent = document.getElementById('result-content');
+        const resultThumbnail = document.getElementById('result-thumbnail');
+        const resultDisplay = document.getElementById('result-display');
+        const errorDisplay = document.getElementById('error-display');
+        const resultTitle = document.getElementById('result-title');
+        const resultText = document.getElementById('result-text');
+        const copyErrorBtn = document.getElementById('copy-error-btn');
+        const copyJsonBtn = document.getElementById('copy-json-btn');
+        const actionButtons = document.getElementById('action-buttons');
+        
+        const customAlert = document.getElementById('custom-alert');
+        const alertMessage = document.getElementById('alert-message');
+        const alertOkBtn = document.getElementById('alert-ok-btn');
+        
+        const toast = document.getElementById('toast-notification');
+        const toastMessage = document.getElementById('toast-message');
+        
+        const imageViewerModal = document.getElementById('image-viewer-modal');
+        const fullImageView = document.getElementById('full-image-view');
+        const closeViewerBtn = document.getElementById('close-viewer-btn');
+        
+        let capturedImageB64 = null;
+        let mediaStream = null;
+        let fullErrorDetails = '';
+        let currentScanData = {};
+        let scanHistory = [];
+        let flashEnabled = false;
+        let toastTimeout;
+
+        // --- Core Functions ---
+        
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            customAlert.style.display = 'flex';
+        }
+
+        function showToast(message) {
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden');
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 1500);
+        }
+
+        function stopCamera() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+                flashBtn.classList.add('hidden');
+            }
+        }
+
+        async function startCamera() {
+            stopCamera(); 
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showAlert("Camera not supported on this browser.");
+                    return;
+                }
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = mediaStream;
+                await video.play();
+                checkFlashlightSupport();
+                showView('camera-view');
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                showAlert("Could not access the camera. Please ensure you have given permission.");
+            }
+        }
+        
+        async function checkFlashlightSupport() {
+            if (!mediaStream) return;
+            const videoTrack = mediaStream.getVideoTracks()[0];
+            const capabilities = videoTrack.getCapabilities();
+            if (capabilities.torch) {
+                flashBtn.classList.remove('hidden');
+            }
+        }
+
+        async function toggleFlashlight() {
+            if (!mediaStream) return;
+            const videoTrack = mediaStream.getVideoTracks()[0];
+            flashEnabled = !flashEnabled;
+            try {
+                await videoTrack.applyConstraints({
+                    advanced: [{ torch: flashEnabled }]
+                });
+                flashBtn.classList.toggle('text-yellow-400', flashEnabled);
+            } catch (err) {
+                console.error('Error toggling flashlight:', err);
+                showAlert('Could not control flashlight.');
+            }
+        }
+
+        function captureImage() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            capturedImageB64 = canvas.toDataURL('image/jpeg');
+            photoPreview.src = capturedImageB64;
+            showView('preview-view');
+            stopCamera(); 
+        }
+        
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    capturedImageB64 = e.target.result;
+                    photoPreview.src = capturedImageB64;
+                    showView('preview-view');
+                    stopCamera();
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function analyzeImage() {
+            if (!capturedImageB64) {
+                showAlert("No image available to analyze.");
+                return;
+            }
+            
+            showView('results-loading');
+
+            const fewShotExamples = `
+                "example1": { "output": { "assetName": "Herman Miller Aeron Chair", "assetCategory": "Office Furniture", "manufacturer": "Herman Miller", "modelNumber": "Aeron", "serialNumber": "N/A", "barcodeValue": "N/A", "primaryColor": "Black", "conditionNotes": "Appears to be in good condition.", "confidenceScore": 95 }},
+                "example2": { "output": { "assetName": "Cisco Catalyst 9300 Switch", "assetCategory": "Networking Equipment", "manufacturer": "Cisco", "modelNumber": "C9300-24T", "serialNumber": "FOC2319Y78X", "barcodeValue": "882658923456", "primaryColor": "Gray", "conditionNotes": "Dusty, rack ears attached.", "confidenceScore": 98 }}
+            `;
+
+            const prompt = `You are an expert asset identification specialist. Analyze the provided image and extract detailed information. Return the data as a valid JSON object with the following keys: "assetName", "assetCategory", "manufacturer", "modelNumber", "serialNumber", "barcodeValue", "primaryColor", "conditionNotes", and "confidenceScore".
+            - The 'confidenceScore' should be an integer between 0 and 100 representing your certainty.
+            - If any value is not visible or identifiable, the value for that key must be "N/A".
+            - Here are some examples of perfect outputs: ${fewShotExamples}
+            - Now, analyze the new image and generate the JSON output in the exact same format. Do not include the markdown characters \`\`\`json in your response.`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }, { inlineData: { mime_type: "image/jpeg", data: capturedImageB64.split(',')[1] } }] }],
+                generationConfig: { 
+                    temperature: 0.1, 
+                    maxOutputTokens: 2048,
+                    responseMimeType: "application/json"
+                }
+            };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const result = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                handleAnalysisResult(result);
+            } catch (error) {
+                console.error("Critical error during analysis fetch:", error);
+                handleAnalysisError("A critical network error occurred.", error.toString());
+            } finally {
+                showView('results-done');
+            }
+        }
+        
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            let lastError;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        if (response.status >= 500 && response.status < 600) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        return await response.json();
+                    }
+                    return await response.json();
+                } catch (error) {
+                    lastError = error;
+                    console.log(`Attempt ${i + 1} failed. Retrying...`);
+                    await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+                }
+            }
+            throw lastError;
+        }
+
+        function handleAnalysisResult(result) {
+            if (!result) {
+                handleAnalysisError("Received an empty response from the server.", "Result object is undefined or null.");
+                return;
+            }
+
+            errorDisplay.style.display = 'none';
+            resultDisplay.style.display = 'block';
+            copyJsonBtn.style.display = 'flex';
+
+            try {
+                if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts[0].text) {
+                    let jsonText = result.candidates[0].content.parts[0].text;
+                    
+                    const startIndex = jsonText.indexOf('{');
+                    const endIndex = jsonText.lastIndexOf('}');
+                    if (startIndex > -1 && endIndex > -1) {
+                        jsonText = jsonText.substring(startIndex, endIndex + 1);
+                    }
+
+                    currentScanData = JSON.parse(jsonText);
+                    const isDuplicate = checkForDataDuplicates(currentScanData);
+                    displayStructuredData(currentScanData, true, isDuplicate);
+                    saveToHistory({ data: currentScanData, image: capturedImageB64, timestamp: new Date().toISOString() });
+                } else {
+                    const finishReason = result.candidates?.[0]?.finishReason || 'UNKNOWN';
+                    handleAnalysisError(`Could not get a valid analysis. Reason: ${finishReason}.`, JSON.stringify(result, null, 2));
+                }
+            } catch (e) {
+                handleAnalysisError("Failed to parse the AI's response.", result.candidates?.[0]?.content?.parts?.[0]?.text || "No text part received.");
+            }
+        }
+        
+        function checkForDataDuplicates(data) {
+            const currentId = data.serialNumber || data.barcodeValue;
+            if (currentId && currentId !== 'N/A') {
+                const trimmedCurrentId = currentId.trim();
+                if (trimmedCurrentId === '') return false;
+
+                const duplicate = scanHistory.find(scan => {
+                    const oldId = scan.data.serialNumber || scan.data.barcodeValue;
+                    if (oldId && oldId !== 'N/A') {
+                        return oldId.trim() === trimmedCurrentId;
+                    }
+                    return false;
+                });
+                return !!duplicate;
+            }
+            return false;
+        }
+
+        function displayStructuredData(data, isEditable = true, isDuplicate = false) {
+            resultDisplay.innerHTML = ''; // Clear previous results
+            const keyMapping = {
+                assetName: "Asset Name", assetCategory: "Category", manufacturer: "Manufacturer",
+                modelNumber: "Model No.", serialNumber: "Serial No.", barcodeValue: "Barcode",
+                primaryColor: "Color", conditionNotes: "Condition", confidenceScore: "Confidence"
+            };
+
+            for (const key in keyMapping) {
+                const value = data[key];
+                if (value !== undefined && (value !== 'N/A' || isEditable)) {
+                    const container = document.createElement('div');
+                    
+                    if (key === 'confidenceScore') {
+                        let colorClass = 'bg-red-500';
+                        if (value >= 80) colorClass = 'bg-green-500';
+                        else if (value >= 60) colorClass = 'bg-yellow-500';
+                        
+                        container.className = 'flex items-center justify-between';
+                        container.innerHTML = `
+                            <dt class="text-sm font-bold text-blue-400 tracking-widest uppercase">${keyMapping[key]}</dt>
+                            <dd class="text-white text-lg font-bold px-3 py-1 text-sm rounded-full ${colorClass}">${value}%</dd>
+                        `;
+                    } else {
+                        container.className = 'flex flex-col sm:flex-row sm:items-center sm:space-x-2';
+                        container.innerHTML = `
+                            <div class="w-full sm:w-1/3 mb-1 sm:mb-0">
+                                <dt class="text-sm font-bold text-blue-400 tracking-widest uppercase">${keyMapping[key]}</dt>
+                            </div>
+                            <div class="w-full sm:w-2/3 flex items-center space-x-2">
+                                <input type="text" value="${value || 'N/A'}" data-key="${key}" class="editable-field" ${!isEditable ? 'readonly' : ''}>
+                                <button class="copy-field-btn text-gray-500 hover:text-white" data-value="${value || 'N/A'}" data-label="${keyMapping[key]}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                    resultDisplay.appendChild(container);
+                }
+            }
+
+            if (isDuplicate) {
+                const duplicateDiv = document.createElement('div');
+                duplicateDiv.className = 'flex items-center justify-between p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mt-4';
+                duplicateDiv.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                        <span class="text-yellow-400 font-bold text-sm">Duplicate asset data found in history.</span>
+                    </div>
+                `;
+                resultDisplay.appendChild(duplicateDiv);
+            }
+            
+            resultDisplay.querySelectorAll('.editable-field').forEach(input => {
+                if(!input.readOnly) {
+                    input.addEventListener('change', (e) => {
+                        currentScanData[e.target.dataset.key] = e.target.value;
+                    });
+                }
+            });
+            resultDisplay.querySelectorAll('.copy-field-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    copyToClipboard(btn.dataset.value, `${btn.dataset.label} copied!`);
+                });
+            });
+
+            resultThumbnail.src = capturedImageB64;
+            resultThumbnail.classList.remove('hidden');
+        }
+        
+        function handleAnalysisError(userMessage, errorDetails) {
+            resultDisplay.style.display = 'none';
+            errorDisplay.style.display = 'block';
+            copyJsonBtn.style.display = 'none';
+            resultThumbnail.classList.add('hidden');
+
+            resultText.textContent = userMessage;
+            fullErrorDetails = errorDetails;
+            copyErrorBtn.style.display = 'inline-block';
+        }
+
+        function copyToClipboard(text, successMessage) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.top = '-9999px';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMessage);
+            } catch (err) {
+                console.error('Copy to clipboard failed:', err);
+                showAlert('Failed to copy text.');
+            }
+            document.body.removeChild(textArea);
+        }
+        
+        function saveToHistory(scan) {
+            scanHistory.unshift(scan);
+            if (scanHistory.length > 10) {
+                scanHistory.pop();
+            }
+            localStorage.setItem('assetScanHistory', JSON.stringify(scanHistory));
+        }
+
+        function loadHistory() {
+            const history = localStorage.getItem('assetScanHistory');
+            if (history) {
+                scanHistory = JSON.parse(history);
+            }
+        }
+        
+        function renderHistory() {
+            historyList.innerHTML = '';
+            if (scanHistory.length === 0) {
+                historyList.innerHTML = `<p class="text-center text-gray-500">No scans in history.</p>`;
+                return;
+            }
+            scanHistory.forEach((scan, index) => {
+                const item = document.createElement('div');
+                item.className = 'glass-pane p-3 rounded-lg flex items-center space-x-4 cursor-pointer hover:border-blue-500';
+                item.innerHTML = `
+                    <img src="${scan.image}" class="w-16 h-16 object-cover rounded-md border border-gray-700">
+                    <div class="flex-grow">
+                        <p class="font-bold text-white">${scan.data.assetName || 'Unknown Asset'}</p>
+                        <p class="text-xs text-gray-400">${new Date(scan.timestamp).toLocaleString()}</p>
+                    </div>
+                `;
+                item.onclick = () => {
+                    currentScanData = scan.data;
+                    capturedImageB64 = scan.image;
+                    displayStructuredData(currentScanData, true, checkForDataDuplicates(scan.data, index));
+                    showView('results-done');
+                };
+                historyList.appendChild(item);
+            });
+        }
+
+        function showView(viewName) {
+            ['camera-view', 'preview-view', 'results-view', 'history-view'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            mainContent.style.display = 'flex';
+            
+            if (viewName === 'history-view') {
+                renderHistory();
+                historyBtn.style.display = 'none';
+                backBtn.style.display = 'block';
+                document.getElementById('history-view').style.display = 'flex';
+            } else {
+                historyBtn.style.display = 'block';
+                backBtn.style.display = 'none';
+                if (viewName === 'results-loading') {
+                    document.getElementById('results-view').style.display = 'flex';
+                    loader.style.display = 'flex';
+                    resultContent.style.display = 'none';
+                    actionButtons.style.display = 'none';
+                } else if (viewName === 'results-done') {
+                    document.getElementById('results-view').style.display = 'flex';
+                    loader.style.display = 'none';
+                    resultContent.style.display = 'block';
+                    actionButtons.style.display = 'flex';
+                } else {
+                    const el = document.getElementById(viewName);
+                    if (el) el.style.display = 'flex';
+                }
+            }
+        }
+
+        // --- Event Listeners ---
+        captureBtn.addEventListener('click', captureImage);
+        uploadBtn.addEventListener('change', handleImageUpload);
+        retakeBtn.addEventListener('click', startCamera);
+        analyzeBtn.addEventListener('click', analyzeImage);
+        startOverBtn.addEventListener('click', startCamera);
+        alertOkBtn.addEventListener('click', () => { customAlert.style.display = 'none'; });
+        copyErrorBtn.addEventListener('click', () => copyToClipboard(fullErrorDetails, 'Error details copied.'));
+        copyJsonBtn.addEventListener('click', () => copyToClipboard(JSON.stringify(currentScanData, null, 2), 'Asset data copied as JSON.'));
+        historyBtn.addEventListener('click', () => showView('history-view'));
+        backBtn.addEventListener('click', startCamera);
+        flashBtn.addEventListener('click', toggleFlashlight);
+        resultThumbnail.addEventListener('click', () => {
+            fullImageView.src = capturedImageB64;
+            imageViewerModal.style.display = 'flex';
+        });
+        closeViewerBtn.addEventListener('click', () => {
+            imageViewerModal.style.display = 'none';
+        });
+        imageViewerModal.addEventListener('click', (e) => {
+            if (e.target === imageViewerModal) {
+                imageViewerModal.style.display = 'none';
+            }
+        });
+
+        // --- App Initialization ---
+        window.addEventListener('load', () => {
+            loadHistory();
+            startCamera();
+        });
+
+    </script>
+</body>
+</ht
